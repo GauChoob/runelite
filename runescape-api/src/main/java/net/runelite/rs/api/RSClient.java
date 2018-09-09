@@ -32,6 +32,7 @@ import net.runelite.api.World;
 import net.runelite.api.widgets.Widget;
 import net.runelite.mapping.Construct;
 import net.runelite.mapping.Import;
+import net.runelite.mapping.Protect;
 
 public interface RSClient extends RSGameEngine, Client
 {
@@ -39,13 +40,25 @@ public interface RSClient extends RSGameEngine, Client
 	@Override
 	int getCameraX();
 
+	@Import("cameraX")
+	@Override
+	void setCameraX(int cameraX);
+
 	@Import("cameraY")
 	@Override
 	int getCameraY();
 
+	@Import("cameraY")
+	@Override
+	void setCameraY(int cameraY);
+
 	@Import("cameraZ")
 	@Override
 	int getCameraZ();
+
+	@Import("cameraZ")
+	@Override
+	void setCameraZ(int cameraZ);
 
 	@Import("plane")
 	@Override
@@ -55,9 +68,17 @@ public interface RSClient extends RSGameEngine, Client
 	@Override
 	int getCameraPitch();
 
+	@Import("cameraPitch")
+	@Override
+	void setCameraPitch(int cameraPitch);
+
 	@Import("cameraYaw")
 	@Override
 	int getCameraYaw();
+
+	@Import("cameraYaw")
+	@Override
+	void setCameraYaw(int cameraYaw);
 
 	@Import("world")
 	int getWorld();
@@ -90,6 +111,7 @@ public interface RSClient extends RSGameEngine, Client
 	int getEnergy();
 
 	@Import("weight")
+	@Override
 	int getWeight();
 
 	@Import("baseX")
@@ -131,11 +153,11 @@ public interface RSClient extends RSGameEngine, Client
 	@Override
 	int getMouseCurrentButton();
 
-	@Import("selectedRegionTileX")
-	int getSelectedRegionTileX();
+	@Import("selectedSceneTileX")
+	int getSelectedSceneTileX();
 
-	@Import("selectedRegionTileY")
-	int getSelectedRegionTileY();
+	@Import("selectedSceneTileY")
+	int getSelectedSceneTileY();
 
 	@Import("draggingWidget")
 	@Override
@@ -156,9 +178,18 @@ public interface RSClient extends RSGameEngine, Client
 	@Import("widgets")
 	RSWidget[][] getWidgets();
 
-	@Import("region")
+	/**
+	 * Gets an array of widgets that correspond to the passed group ID.
+	 *
+	 * @param groupId the group ID
+	 * @return the widget group
+	 * @see net.runelite.api.widgets.WidgetID
+	 */
+	RSWidget[] getGroup(int groupId);
+
+	@Import("scene")
 	@Override
-	RSRegion getRegion();
+	RSScene getScene();
 
 	@Import("localPlayer")
 	@Override
@@ -306,13 +337,17 @@ public interface RSClient extends RSGameEngine, Client
 	@Import("createSprite")
 	RSSpritePixels createItemSprite(int itemId, int quantity, int thickness, int borderColor, int stackable, boolean noted);
 
-	@Import("getSpriteAsSpritePixels")
+	@Import("getSpritesAsSpritePixels")
 	@Override
-	RSSpritePixels getSprite(IndexDataBase source, int archiveId, int fileId);
+	RSSpritePixels[] getSprites(IndexDataBase source, int archiveId, int fileId);
 
 	@Import("indexSprites")
 	@Override
 	RSIndexDataBase getIndexSprites();
+
+	@Import("indexScripts")
+	@Override
+	RSIndexDataBase getIndexScripts();
 
 	@Import("widgetFlags")
 	@Override
@@ -451,8 +486,8 @@ public interface RSClient extends RSGameEngine, Client
 	@Import("lowMemory")
 	void setLowMemory(boolean lowMemory);
 
-	@Import("regionLowMemory")
-	void setRegionLowMemory(boolean lowMemory);
+	@Import("sceneLowMemory")
+	void setSceneLowMemory(boolean lowMemory);
 
 	@Import("audioHighMemory")
 	void setAudioHighMemory(boolean highMemory);
@@ -627,4 +662,29 @@ public interface RSClient extends RSGameEngine, Client
 
 	@Import("widgetSpriteCache")
 	RSNodeCache getWidgetSpriteCache();
+
+	@Import("oculusOrbState")
+	@Override
+	void setOculusOrbState(int state);
+
+	@Import("oculusOrbNormalSpeed")
+	@Override
+	void setOculusOrbNormalSpeed(int state);
+
+	RSItem getLastItemDespawn();
+
+	void setLastItemDespawn(RSItem lastItemDespawn);
+
+	@Construct
+	RSWidget createWidget();
+
+	@Import("revalidateWidget")
+	void revalidateWidget(Widget w);
+
+	@Import("revalidateWidgetScroll")
+	void revalidateWidgetScroll(Widget[] group, Widget w, boolean postEvent);
+
+	@Import("menuAction")
+	@Protect
+	void menuAction(int var0, int var1, int var2, int var3, String var4, String var5, int var6, int var7);
 }

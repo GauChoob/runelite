@@ -30,12 +30,10 @@ import java.awt.GridLayout;
 import javax.inject.Inject;
 import javax.swing.JButton;
 import javax.swing.JPanel;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.PluginPanel;
 
-@Slf4j
 public class DevToolsPanel extends PluginPanel
 {
 	private final Client client;
@@ -223,6 +221,16 @@ public class DevToolsPanel extends PluginPanel
 			plugin.toggleTileLocation();
 		});
 		container.add(tileLocationBtn);
+
+		final JButton oculusOrbBtn = new JButton("Detached camera");
+		oculusOrbBtn.addActionListener(e ->
+		{
+			highlightButton(oculusOrbBtn);
+			boolean enabled = oculusOrbBtn.getBackground().equals(Color.GREEN);
+			client.setOculusOrbState(enabled ? 1 : 0);
+			client.setOculusOrbNormalSpeed(enabled ? 36 : 12);
+		});
+		container.add(oculusOrbBtn);
 
 		return container;
 	}

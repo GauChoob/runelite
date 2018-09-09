@@ -41,13 +41,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import javax.annotation.Nullable;
-import javax.imageio.ImageIO;
 import javax.inject.Inject;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.border.EmptyBorder;
-import javax.swing.border.MatteBorder;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.Experience;
@@ -56,6 +54,9 @@ import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.PluginPanel;
 import net.runelite.client.ui.components.IconTextField;
+import net.runelite.client.ui.components.materialtabs.MaterialTab;
+import net.runelite.client.ui.components.materialtabs.MaterialTabGroup;
+import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.RunnableExceptionLogger;
 import net.runelite.client.util.StackFormatter;
 import net.runelite.http.api.hiscore.HiscoreClient;
@@ -130,8 +131,8 @@ public class HiscorePanel extends PluginPanel
 
 	private final JPanel statsPanel = new JPanel();
 
-	/* A list of all the selectable endpoints (ironman, deadman, etc) */
-	private final List<JPanel> endPoints = new ArrayList<>();
+	/* Container of all the selectable endpoints (ironman, deadman, etc) */
+	private final MaterialTabGroup tabGroup;
 
 	private final HiscoreClient hiscoreClient = new HiscoreClient();
 
@@ -145,19 +146,9 @@ public class HiscorePanel extends PluginPanel
 
 	static
 	{
-		try
-		{
-			synchronized (ImageIO.class)
-			{
-				SEARCH_ICON = new ImageIcon(ImageIO.read(IconTextField.class.getResourceAsStream("search.png")));
-				LOADING_ICON = new ImageIcon(IconTextField.class.getResource("loading_spinner_darker.gif"));
-				ERROR_ICON = new ImageIcon(ImageIO.read(IconTextField.class.getResourceAsStream("error.png")));
-			}
-		}
-		catch (IOException e)
-		{
-			throw new RuntimeException(e);
-		}
+		SEARCH_ICON = new ImageIcon(ImageUtil.getResourceStreamFromClass(IconTextField.class, "search.png"));
+		LOADING_ICON = new ImageIcon(IconTextField.class.getResource("loading_spinner_darker.gif"));
+		ERROR_ICON = new ImageIcon(ImageUtil.getResourceStreamFromClass(IconTextField.class, "error.png"));
 	}
 
 	@Inject
@@ -166,20 +157,24 @@ public class HiscorePanel extends PluginPanel
 		super();
 		this.config = config;
 
-		setBorder(new EmptyBorder(10, 10, 0, 10));
+		// The layout seems to be ignoring the top margin and only gives it
+		// a 2-3 pixel margin, so I set the value to 18 to compensate
+		// TODO: Figure out why this layout is ignoring most of the top margin
+		setBorder(new EmptyBorder(18, 10, 0, 10));
 		setBackground(ColorScheme.DARK_GRAY_COLOR);
-
-		// Create GBL to arrange sub items
-		GridBagLayout gridBag = new GridBagLayout();
-		setLayout(gridBag);
+		setLayout(new GridBagLayout());
 
 		// Expand sub items to fit width of panel, align to top of panel
 		GridBagConstraints c = new GridBagConstraints();
 		c.fill = GridBagConstraints.HORIZONTAL;
-		c.anchor = GridBagConstraints.NORTH;
+		c.gridx = 0;
+		c.gridy = 0;
+		c.weightx = 1;
+		c.weighty = 0;
+		c.insets = new Insets(0, 0, 10, 0);
 
 		input = new IconTextField();
-		input.setPreferredSize(new Dimension(100, 30));
+		input.setMinimumSize(new Dimension(0, 30));
 		input.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 		input.setHoverBackgroundColor(ColorScheme.DARK_GRAY_HOVER_COLOR);
 		input.setIcon(SEARCH_ICON);
@@ -207,81 +202,54 @@ public class HiscorePanel extends PluginPanel
 			}
 		});
 
-		c.gridx = 0;
-		c.gridy = 0;
-		c.weightx = 1;
-		c.weighty = 0;
-		c.insets = new Insets(0, 0, 10, 0);
-		gridBag.setConstraints(input, c);
-		add(input);
+		add(input, c);
+		c.gridy++;
 
-		/* The container for all the endpoint selectors */
-		JPanel endpointPanel = new JPanel();
-		endpointPanel.setLayout(new GridLayout(1, 5, 7, 1));
+		tabGroup = new MaterialTabGroup();
+		tabGroup.setLayout(new GridLayout(1, 5, 7, 7));
 
 		for (HiscoreEndpoint endpoint : HiscoreEndpoint.values())
 		{
-			try
+			final BufferedImage iconImage = ImageUtil.getResourceStreamFromClass(getClass(), endpoint.name().toLowerCase() + ".png");
+
+			MaterialTab tab = new MaterialTab(new ImageIcon(iconImage), tabGroup, null);
+			tab.setToolTipText(endpoint.getName() + " Hiscores");
+			tab.setOnSelectEvent(() ->
 			{
-				BufferedImage iconImage;
-				synchronized (ImageIO.class)
+				if (loading)
 				{
-					iconImage = ImageIO.read(HiscorePanel.class.getResourceAsStream(
-						endpoint.name().toLowerCase() + ".png"));
+					return false;
 				}
 
-				JPanel panel = new JPanel();
-				JLabel label = new JLabel();
+				selectedEndPoint = endpoint;
+				return true;
+			});
 
-				label.setIcon(new ImageIcon(iconImage));
-
-				panel.add(label);
-				panel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-				panel.setToolTipText(endpoint.getName() + " Hiscores");
-				panel.addMouseListener(new MouseAdapter()
-				{
-					@Override
-					public void mouseClicked(MouseEvent e)
-					{
-						if (loading)
-						{
-							return;
-						}
-						executor.execute(HiscorePanel.this::lookup);
-						selectedEndPoint = endpoint;
-						updateButtons();
-					}
-
-					@Override
-					public void mouseEntered(MouseEvent e)
-					{
-						panel.setBackground(ColorScheme.DARKER_GRAY_HOVER_COLOR);
-					}
-
-					@Override
-					public void mouseExited(MouseEvent e)
-					{
-						panel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-					}
-				});
-
-				endPoints.add(panel);
-				endpointPanel.add(panel);
-			}
-			catch (IOException ex)
+			// Adding the lookup method to a mouseListener instead of the above onSelectedEvent
+			// Because sometimes you might want to switch the tab, without calling for lookup
+			// Ex: selecting the normal hiscores as default
+			tab.addMouseListener(new MouseAdapter()
 			{
-				throw new RuntimeException(ex);
-			}
+				@Override
+				public void mousePressed(MouseEvent mouseEvent)
+				{
+					if (loading)
+					{
+						return;
+					}
+
+					executor.execute(HiscorePanel.this::lookup);
+				}
+			});
+
+			tabGroup.addTab(tab);
 		}
 
-		/* Default endpoint is the general (normal) endpoint */
-		selectedEndPoint = HiscoreEndpoint.NORMAL;
-		updateButtons();
+		// Default selected tab is normal hiscores
+		resetEndpoints();
 
-		c.gridx = 0;
-		c.gridy = 1;
-		gridBag.setConstraints(endpointPanel, c);
-		add(endpointPanel);
+		add(tabGroup, c);
+		c.gridy++;
 
 		// Panel that holds skill icons
 		GridLayout stats = new GridLayout(8, 3);
@@ -296,10 +264,8 @@ public class HiscorePanel extends PluginPanel
 			statsPanel.add(panel);
 		}
 
-		c.gridx = 0;
-		c.gridy = 2;
-		gridBag.setConstraints(statsPanel, c);
-		add(statsPanel);
+		add(statsPanel, c);
+		c.gridy++;
 
 		JPanel totalPanel = new JPanel();
 		totalPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
@@ -308,10 +274,8 @@ public class HiscorePanel extends PluginPanel
 		totalPanel.add(makeSkillPanel(null)); //combat has no hiscore skill, refered to as null
 		totalPanel.add(makeSkillPanel(OVERALL));
 
-		c.gridx = 0;
-		c.gridy = 3;
-		gridBag.setConstraints(totalPanel, c);
-		add(totalPanel);
+		add(totalPanel, c);
+		c.gridy++;
 
 		JPanel minigamePanel = new JPanel();
 		// These aren't all on one row because when there's a label with four or more digits it causes the details
@@ -324,10 +288,8 @@ public class HiscorePanel extends PluginPanel
 		minigamePanel.add(makeSkillPanel(BOUNTY_HUNTER_ROGUE));
 		minigamePanel.add(makeSkillPanel(BOUNTY_HUNTER_HUNTER));
 
-		c.gridx = 0;
-		c.gridy = 4;
-		gridBag.setConstraints(minigamePanel, c);
-		add(minigamePanel);
+		add(minigamePanel, c);
+		c.gridy++;
 	}
 
 	@Override
@@ -344,22 +306,22 @@ public class HiscorePanel extends PluginPanel
 		label.setFont(FontManager.getRunescapeSmallFont());
 		label.setText("--");
 
-		String skillIcon = "skill_icons_small/" + (skill == null ? "combat" : skill.getName().toLowerCase()) + ".png";
+		String skillName = (skill == null ? "combat" : skill.getName().toLowerCase());
+		String directory = "/skill_icons";
+		if (skillName.equals("combat") || skillName.equals("overall"))
+		{
+			// Cannot use SpriteManager as HiscorePlugin loads before a Client is available
+			directory += "/";
+		}
+		else
+		{
+			directory += "_small/";
+		}
+
+		String skillIcon = directory + skillName + ".png";
 		log.debug("Loading skill icon from {}", skillIcon);
 
-		try
-		{
-			BufferedImage icon;
-			synchronized (ImageIO.class)
-			{
-				icon = ImageIO.read(HiscorePanel.class.getResourceAsStream(skillIcon));
-			}
-			label.setIcon(new ImageIcon(icon));
-		}
-		catch (IOException ex)
-		{
-			log.warn(null, ex);
-		}
+		label.setIcon(new ImageIcon(ImageUtil.getResourceStreamFromClass(getClass(), skillIcon)));
 
 		boolean totalLabel = skill == HiscoreSkill.OVERALL || skill == null; //overall or combat
 		label.setIconTextGap(totalLabel ? 10 : 4);
@@ -376,10 +338,7 @@ public class HiscorePanel extends PluginPanel
 	public void lookup(String username)
 	{
 		input.setText(username);
-
-		selectedEndPoint = HiscoreEndpoint.NORMAL; //reset the endpoint to regular player
-		updateButtons();
-
+		resetEndpoints();
 		lookup();
 	}
 
@@ -432,11 +391,7 @@ public class HiscorePanel extends PluginPanel
 			return;
 		}
 
-		/*
-		For some reason, the fetch results would sometimes return a not null object
-		with all null attributes, to check for that, i'll just null check one of the attributes.
-		 */
-		if (result == null || result.getAttack() == null)
+		if (result == null)
 		{
 			input.setIcon(ERROR_ICON);
 			input.setEditable(true);
@@ -678,18 +633,9 @@ public class HiscorePanel extends PluginPanel
 		return lookup.replace('\u00A0', ' ');
 	}
 
-	/*
-		When an endpoint gets selected, this method will correctly display the selected one
-		with an orange underline.
-	 */
-	private void updateButtons()
+	private void resetEndpoints()
 	{
-		for (JPanel panel : endPoints)
-		{
-			panel.setBorder(new EmptyBorder(0, 0, 1, 0));
-		}
-
-		int selectedIndex = selectedEndPoint.ordinal();
-		endPoints.get(selectedIndex).setBorder(new MatteBorder(0, 0, 1, 0, ColorScheme.BRAND_ORANGE));
+		// Select the first tab (NORMAL hiscores)
+		tabGroup.select(tabGroup.getTab(0));
 	}
 }
